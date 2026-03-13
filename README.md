@@ -9,7 +9,7 @@ A networked party-game template and experimental testbed for multiplayer gamepla
 
 This repository contains the Unreal Engine project framework for **The Control Lab**, a networked party-game collection. It serves as the foundational template to engineer individual networked experiments (minigames) within a shared ecosystem.
 
-Key features include a pre-configured **Server Browser**, **Host/Join functionality**, and a standardized **Input Schema** designed for rapid prototyping of multiplayer mechanics. Each experiment is designed as a "test chamber" where players compete to survive under a strict 60-second "Pass/Fail" loop.
+Key features include a pre-configured **Server Browser**, **Host/Join functionality**, and a standardised **Input Schema** designed for rapid prototyping of multiplayer mechanics. Each experiment is designed as a "test chamber" where players compete to survive under a strict 60-second "Pass/Fail" loop.
 
 ---
 
@@ -20,7 +20,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 ### Prerequisites
 
 * **Unreal Engine 5.4.4** (or newer).
-* **Visual Studio 2022** with "Game development with C++" and "Unreal Engine installer" workloads.
+* **Visual Studio 2022** (Windows) or **Xcode** (macOS) with C++ development support.
 * **Git** (for cloning the repository).
 * **Epic Games Launcher** installed.
 
@@ -28,11 +28,11 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 1. **Clone the repository:**
     ```sh
-    git clone https://github.com/your-username/UE_Network_Lab.git
+    git clone https://github.com/josh-hall-griffith/UE_Network_Lab.git
     ```
 
 2. **Open the Editor:**
-    Double-click `UE_Network_Lab.uproject` to launch the Unreal Editor.
+    Double-click `UE_Network_Lab.uproject` to launch the Unreal Editor. The **Advanced Sessions Plugin** is included in the `Plugins/` directory and should initialise automatically.
 
 ---
 
@@ -41,59 +41,96 @@ Follow these instructions to get a copy of the project up and running on your lo
 To ensure your experiment integrates with the Lab ecosystem, you must adhere to the following technical standards.
 
 ### 🎮 Input Schema
-All experiments must use the following button mapping schema to maintain compatibility:
+All experiments must use the following button mapping schema to maintain compatibility across different levels:
 
 | Action | Key (KB/M) | Controller |
 | :--- | :--- | :--- |
 | **Move** | WASD | Left Stick |
 | **Look/Rotate** | Mouse | Right Stick |
 | **Menu Move** | Arrow Keys | D-Pad |
-| **Action A: Activate** | E | Left Button |
-| **Action B: Dash/Cancel** | Shift | Right Button |
-| **Action C: Jump/Select** | Space | Bottom Button |
-| **Action D: Special** | Mouse 0 | Top Button |
-| **Action E: Pause** | Esc | Start |
+| **Action A: Activate** | E | Left Face Button |
+| **Action B: Dash/Cancel** | Shift | Right Face Button |
+| **Action C: Jump/Select** | Space | Bottom Face Button |
+| **Action D: Special** | Mouse 0 | Top Face Button |
+| **Action E: Pause** | Esc | Start/Menu |
 
 ### 🧪 Game Rules & Aesthetics
-* **60-Second Loop:** The experiment must resolve to a **Pass/Fail** state within 60 seconds.
-* **State Reset:** The system must automatically reset the `GameState` after the test concludes.
-* **Visuals:** Use a strict "Testing Facility" style. Stick to simple geometric shapes and the provided **Lab White** and **Hazard Orange** materials.
+* **60-Second Loop:** The experiment must resolve to a **Pass/Fail** state within 60-120 seconds.
+* **Visuals:** Use a strict "Testing Facility" style. Stick to simple geometric shapes and the provided **Lab White** and **Hazard Orange** materials. This ensures project size remains small and performance remains high.
+* **Naming Conventions:** Follow industry-standard **PascalCase** for all assets (e.g., `BP_Experiment_CharacterName`, `M_Lab_Floor`).
+
+---
+
+## 🏗️ Core Architecture & Networking
+
+The Lab uses a robust state-driven architecture to manage multiplayer sessions.
+
+### Experiment States (`ControlLab_GameState_e`)
+The `ControlLab_GameState_e` enum in the **GameState** controls the flow of the game:
+*   `MainMenu`: Initial state for server discovery.
+*   `Lobby`: Players wait for the host. The **Start** button is only visible to the **Host** and becomes active once 2 or more players have joined.
+*   `Playing`: The active experiment loop. 
+*   `GameOver`: Triggered when the timer hits zero or a player wins.
+
+### Networking Essentials
+*   **remainingTime (float):** Stored in the `GameState`. This uses **RepNotify** (`OnRep_RemainingTime`) to ensure every client's `WBP_HUD_TIMER` is synchronised with the server's authoritative clock.
+*   **winnerID (int):** Defaulting to `-1` (no winner), this is updated on the Server and replicated to all clients to display the victory screen.
+*   **Session Cleanup:** If the **Host** exits the session, a custom cleanup event triggers to return all connected clients back to the Main Menu automatically.
 
 ---
 
 ## 🛠️ Usage
 
 ### Creating a New Experiment (Map)
-Level contributions must follow the strict folder and naming structure located in `Content/Experiments/`.
+Level contributions must follow the folder and naming structure located in `Content/Experiments/`.
 
 1. **Duplicate the Template:**
 ![Duplicate Template](media/UE_Duplicate.gif)
-   Navigate to `Content/Experiments` and Create a new folder, then group select and drag the Template_Game_Map, Template_Game_Data, template_game_thumbnail onto the new created folder and select copy.
+   Navigate to `Content/Experiments/Template_Game`. Create a new directory for your experiment. Group-select and drag the template assets onto your new folder and select **Copy Here**.
 
-2. **Rename Assets:**
-   Inside your new folder, rename the three core assets to match your project:
-   * `Template_Game_Data` → `My_Minigame_Data`
-   * `Template_Game_Map` → `My_Minigame_Map`
-   * `template_game_thumbnail` → `my_minigame_thumbnail`
+2. **Rename and Organise Assets:**
+   Inside your new folder, rename assets using the experiment prefix (e.g., `MyMinigame`):
+   * `Template_Game_Map` → `MyMinigame_Map`
+   * `Template_Game_Data` → `MyMinigame_Data`
+   * `template_game_thubnail` → `MyMinigame_Thumbnail`
+
+   **Crucial Step:** To modify specific rules or characters, you must also copy and rename:
+   * `BP_Template_Game_GameState` → `BP_MyMinigame_GameState`
+   * `BP_Template_Game_PlayerController` → `BP_MyMinigame_PlayerController`
+   * `BP_Template_Game_ThirdPersonCharacter` → `BP_MyMinigame_ThirdPersonCharacter`
 
 3. **Configure the Experiment Data:**
-   Open your duplicated `Data Asset` (Primary Data Asset class: `PDA_ExperimentDef`) and fill out the following fields in the **Details** panel:
-   * **Experiment Name:** The display name of your game.
+   Open your duplicated `Data Asset` (`PDA_ExperimentDef`) and complete the **Details** panel:
+   * **Experiment Name:** The display name shown in the browser.
    * **Student Author:** Your name or group ID.
-   * **Level File:** Link your specific `_Map` asset here.
-   * **Thumbnail:** Link your specific `_thumbnail` texture here.
-   * **Experiment ID:** Assign a unique integer (check with your instructor for the current ID range).
+   * **Level File:** Link your specific `_Map` asset.
+   * **Thumbnail:** Link your `_Thumbnail` texture.
+   * **Experiment ID:** Assign a unique integer (consult your instructor for the current range).
 
-### Main Maps
-* **MainMenu:** The default entry point for hosting or joining sessions.
-* **Template_Game_Map:** The primary testing environment for networked gameplay which should be duplicated and built upon.
+### Map World Settings
+![WorldSettings](media/WorldSettings.png)
+After duplicating the template map, open **World Settings** and ensure the **GameMode Override** is set to a GameMode class that uses your new character and state classes. 
 
-**Template_Game_Map Features:**
-![Duplicate Template](media/UE_Network_Template_Level.gif)
-* The template map does have some very basic features added such as press "esc" or "1" key to exit the session. This is located inside the 3rd Person Blueprint.
-* Orange cubes have movement replication set, so all connected users can view the translation and physics. 
-* Blue cubes do not have network replication turned on, and will suffer from network sync issues. 
-* You must edit a duplicated version of this map template and implement relevent replication features for a party game.
+---
+
+## ❓ FAQ
+
+### What is the default entry point?
+The default starting map is `Content/Core/Maps/MainMenu`. Always begin from this scene to correctly initialise the network session manager.
+
+### How do I host a session?
+![Host Server](media/GFS_Host.PNG)
+1. Select **Host** from the main menu.
+2. Enter a unique **Server Name**.
+3. Select your experiment from the list.
+4. Click **Start** to initialise.
+
+### Why can't I see any servers?
+*   **Patience:** Broadcast discovery can take up to 20-30 seconds.
+*   **Manual Join:** On restricted networks (like University Wi-Fi), use the **Manual Join** option with the host's local IP address.
+
+### The game didn't reset after 60 seconds.
+Ensure your experiment's logic sets the `EExperimentState` to `GameOver` when the `remainingTime` reaches zero on the Server.
 
 ---
 
@@ -109,35 +146,6 @@ This project is an educational framework. If you find bugs in the core networkin
 
 ---
 
-## ❓ FAQ
-
-### What is the default entry point?
-The default starting map is located at `Content/Core/Maps/MainMenu`. Always ensure you begin from this scene to correctly initialize the network session manager.
-
-### How do I host a session?
-![Host Server](media/GFS_Host.PNG)
-To host a game:
-1. Select **Host** from the main menu.
-2. Enter a **Server Name** (required).
-3. Select your desired experiment from the list of available maps.
-4. Click **Start** to initialize the server.
-
-### How do I join a session?
-![Server List](media/serverList.PNG)
-You can join an existing session in two ways:
-1. **Server List:** Select **Join** to view a list of available servers on your local network. The list will periodically refresh.
-2. **Manual Join:** If the server list is empty, you can manually enter the **Host IP Address** to connect directly.
-
-### I can't see any servers in the list. What's wrong?
-* **Patience:** It can take 20-30 seconds for the network to broadcast and discover active sessions.
-* **Manual Refresh:** If nothing appears after 30 seconds, click the **Refresh** button manually.
-* **Network Restrictions:** On certain environments (like corporate or university networks), automatic network scanning/UDP broadcasting may be blocked. In these cases, you must use the **Manual Join** option with the host's local IP address.
-
-### The game didn't reset after 60 seconds.
-Ensure your experiment's logic correctly calls the reset event in the `GameState`. Every experiment must adhere to the 60-second Pass/Fail loop and trigger an automatic reset to return to the lobby or restart the test.
-
----
-
 ## 📜 License
 
 Distributed under the MIT License. See `LICENSE.txt` for more information.
@@ -148,7 +156,8 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 **Josh Hall** – Griffith University – [joshua.hall@griffith.edu.au]
 
-Project Link: [https://github.com/your-username/UE_Network_Lab](https://github.com/your-username/UE_Network_Lab)
+Project Link: [https://github.com/josh-hall-griffith/UE_Network_Lab](https://github.com/josh-hall-griffith/UE_Network_Lab)
+
 
 ---
 
