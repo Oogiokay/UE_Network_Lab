@@ -16,4 +16,9 @@ class UE_NETWORK_LAB_API UDataIOFunctionLibrary : public UBlueprintFunctionLibra
 	
 	UFUNCTION(BlueprintCallable)
 	static bool LoadStringFromFile(FString FileName, FString& LoadedString);
+
+	UFUNCTION(BlueprintCallable)
+	static UTexture2D* LoadAsciiTexture(const FString& FilePath, int32 Width, int32 Height);
+
+	static uint8 CharToValue(TCHAR Character);
 };

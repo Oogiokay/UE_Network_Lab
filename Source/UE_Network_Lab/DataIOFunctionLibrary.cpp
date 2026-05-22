@@ -18,3 +18,88 @@ bool UDataIOFunctionLibrary::LoadStringFromFile(FString FileName, FString& Loade
 
     return bSuccess;
 }
+
+UTexture2D* UDataIOFunctionLibrary::LoadAsciiTexture(const FString& FilePath, int32 Width, int32 Height)
+{
+    FString FileContent;
+
+    if (!FFileHelper::LoadFileToString(FileContent, *FilePath))
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to load file")); 
+        return nullptr;
+    }
+
+    UTexture2D* Texture = UTexture2D::CreateTransient( Width, Height, PF_B8G8R8A8);
+
+    if (!Texture)
+    {
+        return nullptr;
+    }
+
+    Texture->MipGenSettings = TMGS_NoMipmaps;
+    Texture->CompressionSettings = TC_VectorDisplacementmap;
+    Texture->SRGB = false;
+
+    FTexture2DMipMap& Mip = Texture->GetPlatformData()->Mips[0];
+
+    void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
+
+    FColor* Pixels = static_cast<FColor*>(Data);
+
+    int32 PixelIndex = 0;
+
+    for (int32 i = 0; i < FileContent.Len(); i++)
+    {
+        TCHAR Character = FileContent[i];
+
+        // Skip line breaks
+        if (Character == '\n' || Character == '\r')
+        {
+            continue;
+        }
+
+        uint8 Value = CharToValue(Character);
+
+        Pixels[PixelIndex] = FColor(
+            Value,
+            Value,
+            Value,
+            255
+        );
+
+        PixelIndex++;
+
+        if (PixelIndex >= Width * Height)
+        {
+            break;
+        }
+    }
+
+    Mip.BulkData.Unlock();
+
+    Texture->UpdateResource();
+
+    return Texture;
+}
+
+uint8 UDataIOFunctionLibrary::CharToValue(TCHAR Character)
+{
+    switch (Character)
+    {
+    case '.':
+        return 0;
+
+    case '"':
+        return 85;
+
+    case '#':
+        return 170;
+
+    case '%':
+        return 255;
+
+    default:
+        return 0;
+    }
+}
+
