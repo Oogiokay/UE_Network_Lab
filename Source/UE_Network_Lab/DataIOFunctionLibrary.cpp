@@ -19,23 +19,30 @@ bool UDataIOFunctionLibrary::LoadStringFromFile(FString FileName, FString& Loade
     return bSuccess;
 }
 
-UTexture2D* UDataIOFunctionLibrary::LoadAsciiTexture(const FString& FilePath, int32 Width, int32 Height)
+UTexture2D* UDataIOFunctionLibrary::LoadAsciiTexture(const FString& FilePath, int32 Width, int32 Height, TArray<int32>& CharacterSummation)
 {
     FString FileContent;
+    CharacterSummation.Init(0, 5);
 
+    // Failsafe to see if the file loaded.
     if (!FFileHelper::LoadFileToString(FileContent, *FilePath))
     {
         UE_LOG(LogTemp, Error, TEXT("Failed to load file")); 
         return nullptr;
     }
 
+
+    // The transient texture.
     UTexture2D* Texture = UTexture2D::CreateTransient( Width, Height, PF_B8G8R8A8);
+
+    
 
     if (!Texture)
     {
         return nullptr;
     }
 
+    //No compression
     Texture->MipGenSettings = TMGS_NoMipmaps;
     Texture->CompressionSettings = TC_VectorDisplacementmap;
     Texture->SRGB = false;
@@ -58,14 +65,35 @@ UTexture2D* UDataIOFunctionLibrary::LoadAsciiTexture(const FString& FilePath, in
             continue;
         }
 
-        uint8 Value = CharToValue(Character);
+        //Using a vector4 Im hoping to get 
+        switch (Character)
+        {
+        case '.':
+            CharacterSummation[0] += 1;
+            break;
 
-        Pixels[PixelIndex] = FColor(
-            Value,
-            Value,
-            Value,
-            255
-        );
+        case '#':
+            CharacterSummation[1] += 1;
+            break;
+
+        case '%':
+            CharacterSummation[2] += 1;
+            break;
+
+        case '"':
+            CharacterSummation[3] += 1;
+            break;
+
+        default:
+            break;
+        }
+
+        uint8 Value = CharToValue(Character);
+        
+        
+
+        // It only needs to be grey for height map :)
+        Pixels[PixelIndex] = FColor( Value, Value, Value, 255);
 
         PixelIndex++;
 
@@ -74,6 +102,8 @@ UTexture2D* UDataIOFunctionLibrary::LoadAsciiTexture(const FString& FilePath, in
             break;
         }
     }
+    
+    
 
     Mip.BulkData.Unlock();
 
@@ -89,13 +119,13 @@ uint8 UDataIOFunctionLibrary::CharToValue(TCHAR Character)
     case '.':
         return 0;
 
-    case '"':
-        return 85;
-
     case '#':
-        return 170;
+        return 80;
 
     case '%':
+        return 160;
+
+    case '"':
         return 255;
 
     default:
