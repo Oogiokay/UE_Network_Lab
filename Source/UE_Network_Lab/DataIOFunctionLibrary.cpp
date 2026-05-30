@@ -43,7 +43,6 @@ UTexture2D* UDataIOFunctionLibrary::LoadAsciiTexture(const FString& FilePath, in
     }
 
     //No compression
-    Texture->MipGenSettings = TMGS_NoMipmaps;
     Texture->CompressionSettings = TC_VectorDisplacementmap;
     Texture->SRGB = false;
 
